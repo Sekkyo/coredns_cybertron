@@ -13,12 +13,10 @@ RUN git clone https://github.com/dougbw/coredns_omada.git /coredns_omada && \
 
 # Configure plugin.cfg with execution order: metadata -> prometheus -> log -> omada -> blocker -> forward
 # This allows local devices (omada) to bypass ad-blocking (blocker)
+# Only add our custom plugins (omada and blocker) between log and forward
 WORKDIR /coredns
-RUN sed -i '/^metadata:metadata$/a prometheus:metrics' plugin.cfg && \
-    sed -i '/^prometheus:metrics$/a log:log' plugin.cfg && \
-    sed -i '/^log:log$/a omada:github.com/dougbw/coredns_omada' plugin.cfg && \
-    sed -i '/^omada:github.com\/dougbw\/coredns_omada$/a blocker:blocker' plugin.cfg && \
-    sed -i '/^blocker:blocker$/a forward:forward' plugin.cfg
+RUN sed -i '/^log:log$/a omada:github.com/dougbw/coredns_omada' plugin.cfg && \
+    sed -i '/^omada:github.com\/dougbw\/coredns_omada$/a blocker:blocker' plugin.cfg
 
 # Create symlink for blocker plugin (uses local reference approach)
 RUN ln -s /blocker /coredns/plugin/blocker
