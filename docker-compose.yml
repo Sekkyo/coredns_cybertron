@@ -1,0 +1,86 @@
+services:
+  coredns:
+    image: sekkyo/coredns_cybertron:latest
+    container_name: coredns_cybertron
+    restart: unless-stopped
+    
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "9153:9153/tcp"  # Prometheus metrics
+    
+    volumes:
+      # Mount your customized Corefile
+      - ./Corefile:/etc/coredns/Corefile:ro
+      
+      # Mount blocklist directory (managed by blocklist-updater sidecar)
+      - blocklist-data:/var/lib/coredns
+    
+    environment:
+      # Optional environment variables for debugging
+      - GODEBUG=netdns=go
+    
+    networks:
+      - dns-network
+    
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/coredns", "-health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    
+    depends_on:
+      blocklist-init:
+        condition: service_completed_successfully
+
+  # Init container to download initial blocklist
+  blocklist-init:
+    image: curlimages/curl:latest
+    volumes:
+      - blocklist-data:/data
+    command: >
+      sh -c "
+      echo 'Downloading initial blocklist...' &&
+      curl -sSL -f -o /data/blocklist.txt https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts &&
+      echo 'Initial blocklist downloaded successfully'
+      "
+
+  # Sidecar container to update blocklist hourly
+  blocklist-updater:
+    image: curlimages/curl:latest
+    container_name: blocklist_updater
+    restart: unless-stopped
+    
+    volumes:
+      - blocklist-data:/data
+      - ./scripts/update-blocklist.sh:/update-blocklist.sh:ro
+    
+    environment:
+      - BLOCKLIST_PATH=/data/blocklist.txt
+    
+    # Run update script every hour
+    command: >
+      sh -c "
+      while true; do
+        echo '[INFO] Running blocklist update...' &&
+        sh /update-blocklist.sh &&
+        echo '[INFO] Sleeping for 1 hour...' &&
+        sleep 3600
+      done
+      "
+    
+    networks:
+      - dns-network
+    
+    depends_on:
+      blocklist-init:
+        condition: service_completed_successfully
+
+volumes:
+  blocklist-data:
+    driver: local
+
+networks:
+  dns-network:
+    driver: bridge

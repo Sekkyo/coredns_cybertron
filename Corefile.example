@@ -1,0 +1,39 @@
+.:53 {
+    # Enable metadata for integration with logging
+    metadata
+
+    # Enable Prometheus metrics on :9153/metrics
+    prometheus :9153
+
+    # Logging with metadata including blocked status
+    log . "{common} {/blocker/request-blocked}"
+
+    # Omada plugin - resolves local network devices
+    # Local devices will bypass the blocker since omada comes first in plugin.cfg
+    omada {
+        controller_url https://192.168.1.254:8043
+        site Default
+        username admin
+        password your-password-here
+        refresh_minutes 5
+        refresh_login_hours 24
+        resolve_clients true
+        resolve_devices true
+        resolve_dhcp_reservations true
+    }
+
+    # Blocker plugin - blocks ads and trackers
+    # Using StevenBlack hosts file, updated hourly, hosts format, return empty (0.0.0.0)
+    blocker /var/lib/coredns/blocklist.txt 1h hosts empty
+
+    # Forward unmatched queries to upstream DNS
+    forward . 8.8.8.8 8.8.4.4 {
+        except local lan home
+    }
+
+    # Cache responses
+    cache 3600
+
+    # Error handling
+    errors
+}
