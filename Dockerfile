@@ -21,8 +21,9 @@ RUN sed -i '/^log:log$/a omada:github.com/dougbw/coredns_omada' plugin.cfg && \
 # Create symlink for blocker plugin (uses local reference approach)
 RUN ln -s /blocker /coredns/plugin/blocker
 
-# Add go.mod replace directive for omada plugin
-RUN echo "" >> go.mod && \
+# Add omada plugin to go.mod as a required module, then replace with local path
+RUN go get github.com/dougbw/coredns_omada@latest && \
+    echo "" >> go.mod && \
     echo "replace github.com/dougbw/coredns_omada => /coredns_omada" >> go.mod
 
 # Generate plugin integration code
