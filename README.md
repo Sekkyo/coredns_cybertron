@@ -252,6 +252,119 @@ Check CoreDNS health:
 docker compose exec coredns /usr/local/bin/coredns -health
 ```
 
+## QNAP QuTS Deployment
+
+### Prerequisites
+
+- QNAP NAS running QuTS or QTS
+- Container Station installed
+- SSH access to QNAP (optional, for command line setup)
+
+### Deployment Steps
+
+#### Option 1: Container Station GUI
+
+1. **Open Container Station** and click **Create Container**
+
+2. **Configure Container**:
+   - **Image**: `ghcr.io/sekkyo/coredns_cybertron:latest`
+   - **Name**: `coredns_cybertron`
+   - **Network Mode**: Bridge (or custom network)
+
+3. **Port Mappings**:
+   - `53:53/UDP` (DNS)
+   - `53:53/TCP` (DNS over TCP)
+   - `9153:9153/TCP` (Metrics)
+
+4. **Volume Bindings**:
+   - Create a shared folder for config: `/share/Container/coredns/`
+   - Mount `/share/Container/coredns/Corefile` → `/etc/coredns/Corefile`
+   - Create volume `blocklist-data` for blocklist storage
+
+5. **Create Blocklist Updater Container**:
+   - **Image**: `curlimages/curl:latest`
+   - **Name**: `blocklist_updater`
+   - **Command**: 
+     ```
+     sh -c "while true; do curl -sSL -f -o /data/blocklist.txt https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts && sleep 3600; done"
+     ```
+   - **Volume**: Same `blocklist-data` volume mounted to `/data`
+
+#### Option 2: SSH/Command Line
+
+1. **SSH into QNAP**:
+   ```bash
+   ssh admin@your-qnap-ip
+   ```
+
+2. **Create directories**:
+   ```bash
+   mkdir -p /share/Container/coredns
+   cd /share/Container/coredns
+   ```
+
+3. **Download files**:
+   ```bash
+   wget https://raw.githubusercontent.com/Sekkyo/coredns_cybertron/main/docker-compose.yml
+   wget https://raw.githubusercontent.com/Sekkyo/coredns_cybertron/main/Corefile.example
+   cp Corefile.example Corefile
+   ```
+
+4. **Edit Corefile** with your Omada settings:
+   ```bash
+   vi Corefile
+   ```
+
+5. **Start with Docker Compose**:
+   ```bash
+   docker-compose up -d
+   ```
+
+### Network Configuration
+
+#### Making QNAP Use CoreDNS as System DNS
+
+1. Go to **Control Panel** → **Network & File Services** → **Network**
+2. Under **TCP/IP**, click **Edit**
+3. Set **DNS Server** to:
+   - Primary: `127.0.0.1` (localhost)
+   - Secondary: `1.1.1.1` (fallback)
+
+#### Configuring DHCP Server (if using QNAP as DHCP server)
+
+1. Go to **DHCP Server** settings
+2. Set DNS server option to QNAP's IP address
+3. Clients will now use CoreDNS for resolution
+
+### QNAP-Specific Considerations
+
+- **Port Conflicts**: QNAP uses port 53 for the `dnsmasq` proxy. Disable it in **Network Services** or use a different port mapping (e.g., `1053`)
+- **Auto-Start**: Enable "Auto-restart" in Container Station for both containers
+- **Resource Limits**: Set appropriate CPU/memory limits (512MB RAM recommended)
+- **Firewall**: Ensure port 53 (UDP/TCP) is accessible from your network
+- **Persistence**: Use QNAP's shared folders for volumes to survive reboots
+
+### Verification
+
+```bash
+# Test from QNAP shell
+nslookup github.com localhost
+
+# Test from network client
+nslookup github.com your-qnap-ip
+
+# Check container logs
+docker logs coredns_cybertron
+docker logs blocklist_updater
+```
+
+### Performance Notes
+
+CoreDNS is lightweight and runs well on QNAP devices. Expected resource usage:
+- **Memory**: ~50-100MB
+- **CPU**: <1% idle, <5% under load
+- **Storage**: ~20MB blocklist file
+
 ## Advanced Usage
 
 ### Custom Blocklists
