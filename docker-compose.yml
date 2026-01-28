@@ -1,6 +1,6 @@
 services:
   coredns:
-    image: sekkyo/coredns_cybertron:latest
+    image: ghcr.io/sekkyo/coredns_cybertron:latest
     container_name: coredns_cybertron
     restart: unless-stopped
     
