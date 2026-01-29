@@ -57,6 +57,6 @@ jobs:
       
       - name: Verify plugins in built image
         run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker pull ghcr.io/sekkyo/coredns_cybertron:latest
           echo "Verifying omada and blocker plugins are included:"
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -plugins | grep -E "(omada|blocker)"
+          docker run --rm ghcr.io/sekkyo/coredns_cybertron:latest -plugins | grep -E "(omada|blocker)"
