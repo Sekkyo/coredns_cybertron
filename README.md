@@ -446,6 +446,31 @@ Create an allowlist for devices that should bypass ad-blocking:
    docker compose restart coredns
    ```
 
+**Updating the allowlist**:
+
+Since the allowlist file is mounted from the host (via the volume binding), you can update it at any time:
+
+```bash
+# Edit the file on your host system
+nano /path/to/allowlist.txt
+
+# Add new entries (e.g., new IP address)
+echo "192.168.1.200" >> /path/to/allowlist.txt
+
+# Reload CoreDNS to pick up changes
+docker compose restart coredns
+```
+
+**Note**: Unlike the blocker plugin which has automatic file monitoring, the unblocker plugin currently loads the allowlist only at startup. You must restart CoreDNS for changes to take effect.
+
+Alternative methods to update:
+- **Docker exec**: Edit inside the container (changes lost on container restart)
+  ```bash
+  docker compose exec coredns vi /etc/coredns/allowlist.txt
+  docker compose restart coredns
+  ```
+- **Rebuild**: Update and rebuild the image if you include the file in the image itself
+
 **How it works**:
 - The unblocker plugin checks incoming DNS requests against the allowlist
 - Matches can be by IP address, MAC address (requires metadata from omada), or hostname
