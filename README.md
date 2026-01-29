@@ -305,8 +305,8 @@ docker compose exec coredns /usr/local/bin/coredns -health
 
 3. **Download files**:
    ```bash
-   wget https://raw.githubusercontent.com/Sekkyo/coredns_cybertron/main/docker-compose.yml
-   wget https://raw.githubusercontent.com/Sekkyo/coredns_cybertron/main/Corefile.example
+   wget https://raw.githubusercontent.com/sekkyo/coredns_cybertron/main/docker-compose.yml
+   wget https://raw.githubusercontent.com/sekkyo/coredns_cybertron/main/Corefile.example
    cp Corefile.example Corefile
    ```
 
