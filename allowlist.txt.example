@@ -1,0 +1,21 @@
+# Unblocker Allowlist Example
+# 
+# Clients in this list will bypass DNS ad-blocking.
+# Supports IP addresses, MAC addresses, and hostnames.
+# Lines starting with # are comments.
+
+# Admin devices - bypass blocking
+192.168.1.10
+192.168.1.11
+
+# MAC addresses (useful with DHCP)
+aa:bb:cc:dd:ee:ff
+BB-CC-DD-EE-FF-00
+
+# Hostnames (from Omada or reverse DNS)
+admin-laptop.local
+developers-workstation.home
+
+# IoT devices that need unrestricted DNS
+192.168.1.100
+smarttv.local

@@ -11,15 +11,20 @@ RUN git clone --depth 1 --branch ${COREDNS_VERSION} https://github.com/coredns/c
 RUN git clone https://github.com/dougbw/coredns_omada.git /coredns_omada && \
     git clone https://github.com/icyflame/blocker.git /blocker
 
-# Configure plugin.cfg with execution order: metadata -> prometheus -> log -> omada -> blocker -> forward
-# This allows local devices (omada) to bypass ad-blocking (blocker)
-# Only add our custom plugins (omada and blocker) between log and forward
+# Copy unblocker plugin
+COPY unblocker /unblocker
+
+# Configure plugin.cfg with execution order: metadata -> prometheus -> log -> omada -> unblocker -> blocker -> forward
+# This allows local devices (omada) to bypass ad-blocking, and unblocker to selectively bypass blocker
+# Only add our custom plugins (omada, unblocker, and blocker) between log and forward
 WORKDIR /coredns
 RUN sed -i '/^log:log$/a omada:github.com/dougbw/coredns_omada' plugin.cfg && \
-    sed -i '/^omada:github.com\/dougbw\/coredns_omada$/a blocker:blocker' plugin.cfg
+    sed -i '/^omada:github.com\/dougbw\/coredns_omada$/a unblocker:unblocker' plugin.cfg && \
+    sed -i '/^unblocker:unblocker$/a blocker:blocker' plugin.cfg
 
-# Create symlink for blocker plugin (uses local reference approach)
-RUN ln -s /blocker /coredns/plugin/blocker
+# Create symlinks for plugins (use local reference approach)
+RUN ln -s /unblocker /coredns/plugin/unblocker && \
+    ln -s /blocker /coredns/plugin/blocker
 
 # Add omada plugin to go.mod as a required module, then replace with local path
 RUN go get github.com/dougbw/coredns_omada@latest && \
@@ -33,7 +38,7 @@ RUN go generate
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} make
 
 # Verify plugins are included
-RUN ./coredns -plugins | grep -E "(omada|blocker)"
+RUN ./coredns -plugins | grep -E "(omada|unblocker|blocker)"
 
 # Runtime stage - minimal image
 FROM debian:bookworm-slim
