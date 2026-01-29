@@ -49,11 +49,10 @@ func (u *Unblocker) isAllowed(ctx context.Context, w dns.ResponseWriter, r *dns.
 	}
 
 	// Check for metadata (MAC address from DHCP or other sources)
-	if md := metadata.ValueFunc(ctx, "unblocker/mac"); md != nil {
-		if macStr, ok := md.(string); ok {
-			if u.allowedMACs[strings.ToLower(macStr)] {
-				return true
-			}
+	if mdFunc := metadata.ValueFunc(ctx, "unblocker/mac"); mdFunc != nil {
+		macStr := mdFunc()
+		if u.allowedMACs[strings.ToLower(macStr)] {
+			return true
 		}
 	}
 
@@ -70,10 +69,9 @@ func (u *Unblocker) isAllowed(ctx context.Context, w dns.ResponseWriter, r *dns.
 // getClientHostname attempts to get hostname from metadata or reverse DNS
 func (u *Unblocker) getClientHostname(ctx context.Context, ip string) string {
 	// Try metadata first (set by omada plugin or other sources)
-	if md := metadata.ValueFunc(ctx, "unblocker/hostname"); md != nil {
-		if hostname, ok := md.(string); ok {
-			return hostname
-		}
+	if mdFunc := metadata.ValueFunc(ctx, "unblocker/hostname"); mdFunc != nil {
+		hostname := mdFunc()
+		return hostname
 	}
 
 	// Fallback to reverse DNS lookup
