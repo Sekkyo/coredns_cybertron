@@ -1,6 +1,6 @@
 # CoreDNS Cybertron
 
-Custom CoreDNS server combining [TP-Link Omada network device resolution](https://github.com/dougbw/coredns_omada) with [DNS-based ad blocking](https://github.com/icyflame/blocker).
+Custom CoreDNS server combining [TP-Link Omada network device resolution](https://github.com/dougbw/coredns_omada) with [DNS-based ad blocking](https://github.com/icyflame/blocker) and selective per-device blocking exemptions.
 
 ## Features
 
@@ -13,9 +13,14 @@ Custom CoreDNS server combining [TP-Link Omada network device resolution](https:
   - Updated hourly via automated sidecar container
   - ~150,000+ blocked domains
   
-- **Smart Plugin Ordering**: Local devices bypass ad-blocking
-  - Plugin execution: metadata → prometheus → log → omada → blocker → forward
-  - Ensures your local network devices always resolve, even if on blocklists
+- **Selective Device Exemptions**: Allow specific devices to bypass ad-blocking
+  - Exempt devices by IP address, MAC address, or hostname
+  - Perfect for admin devices, smart home hubs, or devices that break with ad-blocking
+  - File-based allowlist with automatic reload
+  
+- **Smart Plugin Ordering**: Optimized request handling
+  - Plugin execution: metadata → prometheus → log → omada → unblocker → blocker → forward
+  - Local devices always resolve, allowed devices bypass blocking
 
 ## Quick Start
 
@@ -96,7 +101,7 @@ docker buildx build \
 docker run --rm sekkyo/coredns_cybertron:latest -plugins
 ```
 
-You should see both `omada` and `blocker` in the output.
+You should see `omada`, `unblocker`, and `blocker` in the output.
 
 ## Configuration
 
@@ -117,6 +122,34 @@ omada {
     resolve_dhcp_reservations true             # Resolve DHCP reservations
 }
 ```
+
+#### Unblocker Plugin
+
+```
+unblocker <allowlist_file>
+```
+
+- `allowlist_file`: Path to allowlist file (e.g., `/etc/coredns/allowlist.txt`)
+
+The allowlist file contains one entry per line:
+- **IP addresses**: `192.168.1.10`
+- **MAC addresses**: `aa:bb:cc:dd:ee:ff` or `AA-BB-CC-DD-EE-FF`
+- **Hostnames**: `admin-laptop.local` (case-insensitive)
+- **Comments**: Lines starting with `#` are ignored
+
+Example allowlist.txt:
+```
+# Admin devices
+192.168.1.10
+aa:bb:cc:dd:ee:ff
+admin-laptop.local
+
+# Smart home hub
+192.168.1.50
+home-hub.local
+```
+
+**Note**: The unblocker plugin must be placed **before** the blocker plugin in the Corefile to intercept requests from allowed devices.
 
 #### Blocker Plugin
 
@@ -150,10 +183,14 @@ The `plugin.cfg` defines the execution order:
 2. **prometheus** - Metrics collection
 3. **log** - Request logging
 4. **omada** - Local device resolution (matches local devices first)
-5. **blocker** - Ad/tracker blocking (only sees non-local requests)
-6. **forward** - Upstream DNS forwarding
+5. **unblocker** - Selective device exemptions (allows specific clients to bypass blocking)
+6. **blocker** - Ad/tracker blocking (blocks non-exempt requests)
+7. **forward** - Upstream DNS forwarding
 
-This order ensures local devices always resolve, even if they appear on blocklists.
+This order ensures:
+- Local devices (via omada) always resolve, even if they appear on blocklists
+- Allowed devices (via unblocker) bypass ad-blocking entirely
+- All other requests are subject to ad-blocking before forwarding upstream
 
 ### Multi-Stage Docker Build
 
@@ -366,6 +403,60 @@ CoreDNS is lightweight and runs well on QNAP devices. Expected resource usage:
 - **Storage**: ~20MB blocklist file
 
 ## Advanced Usage
+
+### Per-Device Ad-Blocking Exemptions
+
+Create an allowlist for devices that should bypass ad-blocking:
+
+1. **Create allowlist file** in your config directory:
+   ```bash
+   cat > /path/to/allowlist.txt << 'EOF'
+   # Admin workstation
+   192.168.1.100
+   aa:bb:cc:dd:ee:ff
+   admin-pc.local
+   
+   # Smart home hub (breaks with ad-blocking)
+   192.168.1.50
+   hub.local
+   EOF
+   ```
+
+2. **Mount the file** in `docker-compose.yml`:
+   ```yaml
+   volumes:
+     - ./allowlist.txt:/etc/coredns/allowlist.txt:ro
+   ```
+
+3. **Enable in Corefile**:
+   ```
+   .:53 {
+       metadata
+       prometheus :9153
+       log
+       omada { ... }
+       unblocker /etc/coredns/allowlist.txt
+       blocker /var/lib/coredns/blocklist.txt 1h hosts empty
+       forward . 8.8.8.8 1.1.1.1
+   }
+   ```
+
+4. **Reload CoreDNS**:
+   ```bash
+   docker compose restart coredns
+   ```
+
+**How it works**:
+- The unblocker plugin checks incoming DNS requests against the allowlist
+- Matches can be by IP address, MAC address (requires metadata from omada), or hostname
+- If a match is found, the request skips the blocker plugin entirely
+- All other requests proceed normally through ad-blocking
+
+**Use cases**:
+- **Admin devices**: Development/IT workstations that need unrestricted access
+- **Smart home hubs**: Devices that malfunction with ad-blocking (Alexa, Google Home, etc.)
+- **Gaming consoles**: Devices with strict DNS requirements
+- **Work devices**: Laptops that need access to analytics/tracking for work purposes
 
 ### Custom Blocklists
 
