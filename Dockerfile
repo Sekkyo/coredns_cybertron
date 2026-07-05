@@ -8,10 +8,7 @@ WORKDIR /workspace
 RUN git clone --depth 1 --branch ${COREDNS_VERSION} https://github.com/coredns/coredns.git /coredns
 
 # Clone plugins
-# Using the Sekkyo fork of coredns_omada, which includes a fix for the
-# RecursionAvailable DNS flag not being set on plugin-answered responses
-# (upstream PR: https://github.com/dougbw/coredns_omada/pull/84)
-RUN git clone https://github.com/Sekkyo/coredns_omada.git /coredns_omada && \
+RUN git clone https://github.com/dougbw/coredns_omada.git /coredns_omada && \
     git clone https://github.com/icyflame/blocker.git /blocker
 
 # Copy unblocker plugin
